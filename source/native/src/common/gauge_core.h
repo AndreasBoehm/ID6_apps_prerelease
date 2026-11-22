@@ -25,6 +25,11 @@ typedef struct {
 } bd_frame;
 uint64_t bd_mono_ms(void);
 int bd_decode_did(unsigned did, const unsigned char *data, size_t len, double *out);
+/* Same contract as bd_decode_did, for a (did, scale) pair identified at runtime from the SGBD a
+   car's DME reports to 22 F150 instead of the dme8ff_r default. width is 1 or 2 bytes; an all-ones
+   payload of that width is treated as unavailable, matching bd_decode_did's existing DIDs. */
+int bd_decode_scaled(unsigned width, int is_signed, const unsigned char *data, size_t len,
+                      double mul, double div, double add, double lo, double hi, double *out);
 /* Standard OBD-II mode 01 PIDs (SAE J1979): data bytes after the "41 <pid>" prefix. */
 int bd_decode_obd(unsigned pid, const unsigned char *data, size_t len, double *out);
 int bd_encode(const bd_frame *f, char *out, size_t len);

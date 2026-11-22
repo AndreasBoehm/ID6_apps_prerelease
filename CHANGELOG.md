@@ -1,5 +1,17 @@
 # Change notes
 
+## Unreleased
+
+- **MOST fallback for every worker.** Workers now share one diagnostic link that switches to the head unit's MOST tunnel when the HSFZ gateway cannot be reached. This now covers xDrive Control, Beamer, Hybrid Deck, MG Flasher, Warm Deck, Road Jet and the HUD reader, as well as the workers that already had it. Only the Bootmod3 burble write stays on HSFZ, because it is larger than the tunnel limit. Workers stay on HSFZ when native NBT-AAD (Android Auto) is installed.
+- **Reads are not limited to the DME.** The tunnel carries the target ECU address, so EGS and DSC reads work over MOST too. BoostDeck and Warm Deck now read the transmission temperature over MOST. Probed read-only on one car, not yet run in these builds on a car.
+- Adds a host test that every ECU address and UDS service reaches the tunnel.
+- **Per-car DME identification (`22 F150`).** BoostDeck reads the DME's SGBD index once per connection and, for the SGBDs with calibration (including the S55 on F82 M4 and the DDE741 research), uses that SGBD's own DIDs, widths and scaling for the DME gauges. Unknown SGBDs and signals keep the existing defaults. The S55 coolant is now one byte, which fixes the blank coolant gauge in [issue #117](https://github.com/inotbarnacle/ID6_apps_prerelease/issues/117).
+- **OBD PID fallback.** Where the identified SGBD has no verified DID, BoostDeck reads coolant, intake air, rail pressure and boost as standard Mode 01 PIDs first, because the diesel DDEs reuse those DIDs for other quantities. A verified DID is still read first, and timing and AFR fall back to their PIDs. Not run on a car.
+- **Diesel DDE rows.** D70BX7A0, D72N47A0, D73N57A0, D73N57E0, D75BX7A0 and D83BX7C0 get their own ambient, charge pressure, rail, coolant and intake-air DIDs from their SGBDs. A car whose SGBD has a row reads only the DIDs listed for it, with PID fallback; without a row it keeps the defaults. Not run on a car.
+- **EGS identification.** BoostDeck also identifies the EGS and uses a verified transmission-temperature DID for it, including the DCT SGBDs.
+- **xDrive Control names the DSC** from `22 F150` and lists the 11 known DSC/IB SGBDs. Control writes stay limited to the SGBDs already verified.
+- Adds the `--identify` mode to the signal probe, and `docs/F150.md` with the J-series scope, DDE741 candidates and the OBD PID fallback research.
+
 ## v0.7.6
 
 - Adds MG Flasher live controls and HybridDeck for plug-in hybrid telemetry, including battery health where reported.
