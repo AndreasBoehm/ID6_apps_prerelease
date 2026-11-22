@@ -23,6 +23,11 @@ int main(void) {
     assert(row && !strcmp(row->sgbd, "dme9x2"));
     assert(row->slot[3].present == 0);      /* timing: no verified reading on this SGBD */
     assert(row->slot[7].present == 1 && row->slot[7].did == 0x4C97); /* coolant override */
+    assert(row->slot[4].width == 1);        /* intake air is one byte on dme9x2/dme982 (SGBD RTANS) */
+    assert(dme_signal_row("dme982_r")->slot[3].did == 0x59FA && dme_signal_row("dme98_r")->slot[6].did == 0xEF58);
+    assert(egs_signal_row("gsaw02fh")->trans_temp.did == 0x403D);
+    assert(row->slot[8].present && row->slot[8].did == 0xEC3F && row->slot[8].width == 2); /* intercooler (NT) coolant */
+    assert(!dme_signal_row("dme8ff_r")->slot[8].present); /* dme8ff_r defines no NT-circuit coolant DID (only 5018 charge air and 55DC pump electronics): a table gap, not a hardware fact */
     assert(!dme_signal_row("not-a-real-sgbd"));
     assert(!dme_signal_row(0));
 

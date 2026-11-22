@@ -112,7 +112,7 @@ int bd_encode(const bd_frame *f, char *out, size_t len) {
     size_t used;
     unsigned i;
     if (!f || !out || !len) return -1;
-    const char *version = "NBG7";
+    const char *version = "NBG8";
     n = snprintf(out, len, "%s %lu %u %u %llu", version,
                  (unsigned long)f->seq, f->demo, f->valid,
                  (unsigned long long)f->sent_ms);
@@ -159,7 +159,8 @@ int bd_parse(const char *data, size_t len, bd_frame *out) {
     memcpy(b, data, len); b[len] = 0;
     memset(&f, 0, sizeof f);
     if (len<5 || !isspace((unsigned char)b[4])) return 0;
-    if (!memcmp(b,"NBG7",4)) fields=BD_COUNT;
+    if (!memcmp(b,"NBG8",4)) fields=BD_COUNT;
+    else if (!memcmp(b,"NBG7",4)) fields=31;
     else if (!memcmp(b,"NBG6",4)) fields=22;
     else if (!memcmp(b,"NBG5",4)) fields=11;
     else if (!memcmp(b,"NBG4",4)) fields=9;
@@ -172,7 +173,7 @@ int bd_parse(const char *data, size_t len, bd_frame *out) {
     f.seq=(uint32_t)integer;
     if (!unsigned_field(&cursor,1,&integer)) return 0;
     f.demo=(unsigned)integer;
-    if (!unsigned_field(&cursor,(1u<<fields)-1,&integer)) return 0;
+    if (!unsigned_field(&cursor,BD_ALL_MASK(fields),&integer)) return 0;
     f.valid=(unsigned)integer;
     if (!unsigned_field(&cursor,UINT64_MAX,&f.sent_ms)) return 0;
     for (i = 0; i < fields; ++i) {

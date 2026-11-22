@@ -90,7 +90,7 @@ enum { TRANS_SLOT = 5 };
  * slot_at maps a dme_signal_table.h slot to its dids[] index; TRANS_SLOT is never in this table,
  * only in egs_signal_table.h (identify_egs). Not read on a car. */
 static int identify_dme(struct diag_link *link, struct dme_signal_slot *scale) {
-    static const unsigned char slot_at[8] = {0,1,2,3,4,6,7,8};
+    static const unsigned char slot_at[9] = {0,1,2,3,4,6,7,8,9};
     const unsigned char request[]={0x22,0xF1,0x50}, prefix[]={0x62,0xF1,0x50};
     unsigned char reply[16];
     unsigned negative, index, j;
@@ -102,7 +102,7 @@ static int identify_dme(struct diag_link *link, struct dme_signal_slot *scale) {
     index=((unsigned)reply[n-3]<<16)|((unsigned)reply[n-2]<<8)|reply[n-1];
     sgbd=f150_sgbd(0x12,index);
     row=dme_signal_row(sgbd);
-    if (row) for (j=0; j<8; ++j) if (row->slot[j].present) scale[slot_at[j]]=row->slot[j];
+    if (row) for (j=0; j<9; ++j) if (row->slot[j].present) scale[slot_at[j]]=row->slot[j];
     return row != 0;
 }
 
@@ -229,7 +229,9 @@ int main(int argc, char **argv) {
     const unsigned first_delay[] = {900,0,0,0,500,1150,0,0,1700};
     uint64_t due[sizeof dids/sizeof dids[0]] = {0};
     uint64_t failed_until[sizeof dids/sizeof dids[0]] = {0};
-    struct dme_signal_slot scale[sizeof dids/sizeof dids[0]] = {{0,0,0,0,0,0,0,0,0}};
+    /* scale[9] is the intercooler-coolant row slot, read apart from dids[] (see below). */
+    struct dme_signal_slot scale[sizeof dids/sizeof dids[0] + 1] = {{0,0,0,0,0,0,0,0,0}};
+    uint64_t next_ic = 0;
     int ethanol=0, diesel=0;
     unsigned char pid_refused[BD_COUNT] = {0};
     int no_default_dids = 0; /* the SGBD has a row: only its DIDs are read */
@@ -246,7 +248,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--extended")) selected |= (1u << BD_OIL_TEMP) | (1u << BD_BATTERY);
         else if (!strcmp(argv[i], "--diesel")) diesel=1;
         else if (!strcmp(argv[i], "--signals") && i+1 < (unsigned)argc)
-            selected=number(argv[++i],1,(1u << BD_COUNT)-1);
+            selected=number(argv[++i],1,BD_ALL_MASK(BD_COUNT));
         else if (!strcmp(argv[i], "--session")) session = 1;
         else if (!strcmp(argv[i], "--trace")) trace_reads = 1;
         else if (!strcmp(argv[i], "--no-trans")) no_trans = 1;
@@ -304,7 +306,8 @@ int main(int argc, char **argv) {
             f.value[BD_STFT_B2]=1.6; f.value[BD_LTFT_B2]=-0.8;
             f.value[BD_LAMBDA_TARGET]=.95; f.value[BD_CAT_TEMP]=580;
             f.value[BD_THROTTLE_TARGET]=46;
-            f.valid=(1u<<BD_COUNT)-1;
+            f.valid=BD_ALL_MASK(BD_COUNT);
+            f.value[BD_IC_COOLANT]=41+2*sin(t);
             for (i=0;i<BD_COUNT;++i) observed[i]=bd_mono_ms();
         } else {
             int full_scan = session ? !scanned : link.fd < 0 && !diag_link_on_most(&link);
@@ -373,6 +376,20 @@ int main(int argc, char **argv) {
                 f.value[i-1]=v; observed[i-1]=bd_mono_ms(); f.valid |= 1u << (i-1);
                 /* A tunnel read is slow, so each new value goes out at once. */
                 if (diag_link_on_most(&link) && !send_frame(sock,&dest,&f,observed)) { perror("send frame"); diag_running=0; }
+            }
+            /* Intercooler (low-temperature circuit) coolant: only an SGBD row names its DID, there is no PID. */
+            if (up && !stopped && diag_running && !diesel && scale[9].present &&
+                (selected & (1u<<BD_IC_COOLANT)) && start >= next_ic) {
+                double v = 0;
+                const int rc = read_did(&link,0x12,0,&v,&scale[9]);
+                next_ic = bd_mono_ms()+2000;
+                if (rc < 0 && rc != -3) {
+                    diag_link_drop(&link);
+                    if (diag_link_lost(&link)) { most_lost = 1; diag_running = 0; }
+                    stopped = 1;
+                } else if (rc == 1) {
+                    f.value[BD_IC_COOLANT]=v; observed[BD_IC_COOLANT]=bd_mono_ms(); f.valid |= 1u<<BD_IC_COOLANT;
+                } else f.valid &= ~(1u<<BD_IC_COOLANT);
             }
             for (i=0; up && !stopped && diag_running &&
                       i < sizeof obd_pids / sizeof obd_pids[0]; ++i) {

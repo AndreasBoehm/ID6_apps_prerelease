@@ -11,7 +11,8 @@ enum {
 #undef SIGNAL
     BD_COUNT
 };
-typedef char bd_channels_fit_mask[BD_COUNT < 32 ? 1 : -1];
+typedef char bd_channels_fit_mask[BD_COUNT <= 32 ? 1 : -1];
+#define BD_ALL_MASK(n) ((n) >= 32 ? 0xFFFFFFFFu : (1u << (n)) - 1)
 const char *bd_name(unsigned i);
 enum { BD_MAX_PACKET = 768, BD_STALE_MS = 2500, BD_TEMP_STALE_MS = 3500,
        BD_UDP_PORT = 42860 };
