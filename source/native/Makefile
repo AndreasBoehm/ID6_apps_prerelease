@@ -10,7 +10,7 @@ MOST_HEADERS = src/common/most/most_link.h src/common/most/dsi_client.h src/comm
 FAKE_DSI = tests/fake_dsi.c tests/fake_dme.c tests/fake_dsi.h tests/fake_dme.h
 WORKER_COMMON = $(CORE_LINK) $(MOST) tests/fake_most_env.c $(FAKE_DSI) $(HEADERS) $(MOST_HEADERS)
 HOST_LINK = $(CC) $(CFLAGS) -pthread -DMOST_HOST -Isrc/common -Isrc/ipc -Isrc/workers -Itests
-.PHONY: assets launch-assets test test-plugins check-poll-coverage
+.PHONY: assets launch-assets test test-plugins check-poll-coverage check-reap
 
 assets: | build
 	unzip -p ../../packages/dashboard.zip BoostDeck/BoostDeck_ALL_Images.zip > build/boostdeck-base-images.zip
@@ -137,7 +137,13 @@ test-plugins: check-poll-coverage build/test-boost-deck build/test-shift-deck bu
 launch-assets:
 	$(PYTHON) ../tools/launch_art.py
 
-test: build/xdrive-control build/boost-deck build/shift-deck build/mhd-maps build/engine-codes build/test-core build/test-f150 build/test-most build/test-diag-link build/bootmod3 build/exhaust-flap build/test-launch-timer build/test-launch-records build/test-boost-preferences build/test-warm-progress build/warmdeck-collector build/mgflasher build/hybriddeck-collector
+# A plugin that reaps its worker must not forget the pid on ECHILD alone (the HMI may ignore SIGCHLD): every
+# waitpid in src/plugins needs an ESRCH check beside it, so a new plugin cannot bring the respawn leak back.
+check-reap:
+	@for f in src/plugins/*.cpp; do w=$$(grep -c 'waitpid' $$f); e=$$(grep -c 'ESRCH' $$f); \
+	  [ $$w -le $$e ] || { echo "$$f: waitpid without an ESRCH check (see reap() in shift_deck.cpp)"; exit 1; }; done
+
+test: check-reap build/xdrive-control build/boost-deck build/shift-deck build/mhd-maps build/engine-codes build/test-core build/test-f150 build/test-most build/test-diag-link build/bootmod3 build/exhaust-flap build/test-launch-timer build/test-launch-records build/test-boost-preferences build/test-warm-progress build/warmdeck-collector build/mgflasher build/hybriddeck-collector
 	./build/test-warm-progress
 	./build/test-boost-preferences
 	./build/test-launch-timer
