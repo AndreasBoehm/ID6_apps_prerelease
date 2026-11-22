@@ -11,9 +11,12 @@
 - **EGS identification.** BoostDeck also identifies the EGS and uses a verified transmission-temperature DID for it, including the DCT SGBDs.
 - **xDrive Control names the DSC** from `22 F150` and lists the 11 known DSC/IB SGBDs. Control writes stay limited to the SGBDs already verified.
 - Adds the `--identify` mode to the signal probe, and `docs/F150.md` with the J-series scope, DDE741 candidates and the OBD PID fallback research.
+- **Layouts use the full screen, on a 6-unit grid with 12-unit gutters and margins.** The layouts were migrated to the HMI's 1440 × 540 design-unit canvas, which the head unit scales to the panel, so every app is now authored directly for the 1260 × 477 content area instead of being scaled from a smaller base. Cards and tiles are equal-width rows exactly 12 units apart, and every layout ends 12 units from the top, bottom and right of the content area (rows span 1248 units, from y = 12 to 465). The 12-unit bottom margin and four-across cards (303 wide) are the only places off the 6-unit grid. See `docs/LAYOUT.md`.
+- **Compact 800 × 480 and 960 × 480 layouts are centered vertically.** They are still scaled uniformly, so they are shorter than the content area; each page is now centered in it instead of sitting at the top.
 
 ## v0.7.6
 
+- App layouts now fill the full 1260 × 477 content area (flush left, small margins elsewhere) instead of leaving a gap at the right and bottom. The compact 800 × 480 and 960 × 480 layouts are scaled from the new base.
 - Adds MG Flasher live controls and HybridDeck for plug-in hybrid telemetry, including battery health where reported.
 - BoostDeck gets larger circular gauges, radio-button settings, gasoline rail-pressure fallback, and improved handling of unavailable signals and an occupied HUD sharing port.
 - Bootmod3 detects supported ROMs automatically. Exhaust flap and Active Sound work independently of the ROM lookup.
