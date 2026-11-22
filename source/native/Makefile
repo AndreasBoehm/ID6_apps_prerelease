@@ -10,7 +10,7 @@ MOST_HEADERS = src/common/most/most_link.h src/common/most/dsi_client.h src/comm
 FAKE_DSI = tests/fake_dsi.c tests/fake_dme.c tests/fake_dsi.h tests/fake_dme.h
 WORKER_COMMON = $(CORE_LINK) $(MOST) tests/fake_most_env.c $(FAKE_DSI) $(HEADERS) $(MOST_HEADERS)
 HOST_LINK = $(CC) $(CFLAGS) -pthread -DMOST_HOST -Isrc/common -Isrc/ipc -Isrc/workers -Itests
-.PHONY: assets launch-assets test
+.PHONY: assets launch-assets test test-plugins check-poll-coverage
 
 assets: | build
 	unzip -p ../../packages/dashboard.zip BoostDeck/BoostDeck_ALL_Images.zip > build/boostdeck-base-images.zip
@@ -87,6 +87,53 @@ build/boost-test-core.o: $(CORE) $(HEADERS) | build
 build/test-boost-preferences: tests/test_boost_preferences.cpp build/boost-test-core.o src/plugins/boost_preferences.h src/common/gauge_preferences.h | build
 	$(CXX) -O2 -std=gnu++98 -Wall -Wextra -Werror -Isrc/plugins -Isrc/common $(filter %.cpp %.o,$^) -o $@
 
+# Plugin logic on the host, against a fake BMW framework (tests/fake_bmw.cpp). The display transcripts
+# in tests/golden/ come from the plugins before the polling and refresh changes: they must not change.
+PLUGIN_HOST = $(CXX) -std=gnu++98 -O1 -w -fno-access-control -Isdk -Isrc/common -Isrc/ipc -Isrc/plugins -Itests
+PLUGIN_FAKE = tests/fake_bmw.cpp tests/fake_bmw.h build/gauge_core.o build/launch_timer.o
+
+build/gauge_core.o: src/common/gauge_core.c src/common/gauge_core.h | build
+	$(CC) -O2 -std=c99 -Isrc/common -c $< -o $@
+
+build/test-boost-deck: tests/test_boost_deck_host.cpp src/plugins/boost_deck.cpp $(PLUGIN_FAKE) | build
+	$(PLUGIN_HOST) -DBOOST_DECK_SOURCE='"$(abspath src/plugins/boost_deck.cpp)"' $< tests/fake_bmw.cpp build/gauge_core.o -lm -o $@
+
+build/test-shift-deck: tests/test_drive_deck_host.cpp src/plugins/shift_deck.cpp $(PLUGIN_FAKE) | build
+	$(PLUGIN_HOST) -DDECK_SOURCE='"$(abspath src/plugins/shift_deck.cpp)"' -DDECK_CLASS=ShiftDeck -DDECK_PORT=42863 $< tests/fake_bmw.cpp build/gauge_core.o -lm -o $@
+
+build/test-launch-deck: tests/test_drive_deck_host.cpp src/plugins/launch_deck.cpp $(PLUGIN_FAKE) | build
+	$(PLUGIN_HOST) -DDECK_SOURCE='"$(abspath src/plugins/launch_deck.cpp)"' -DDECK_CLASS=LaunchDeck -DDECK_PORT=42864 -DDECK_LAUNCH $< tests/fake_bmw.cpp build/gauge_core.o build/launch_timer.o -lm -o $@
+
+# A plugin whose poll timer follows the page (stops while hidden, restarts on show) needs a hidden-polling test.
+# boost, shift and launch have their own above; the rest share tests/test_poll_lifecycle_host.cpp, listed here as
+# file:Class. check-poll-coverage fails for any plugin that posts a poll message and tracks visibility but is
+# in neither list, so a new plugin cannot skip this. Goldens come from main: tests/golden/<file>-display.txt.
+POLL_LIFECYCLE = warm_deck:WarmDeck hybrid_deck:HybridDeck road_jet:RoadJet
+POLL_NAMES = $(foreach p,$(POLL_LIFECYCLE),$(word 1,$(subst :, ,$p)))
+POLL_EXEMPT = beamer  # polls only while its worker runs, whatever the page does
+
+define POLL_RULE
+build/test-$(1): tests/test_poll_lifecycle_host.cpp src/plugins/$(1).cpp $$(PLUGIN_FAKE) | build
+	$$(PLUGIN_HOST) -DPLUGIN_SOURCE='"$$(abspath src/plugins/$(1).cpp)"' -DPLUGIN_CLASS=$(2) $$< tests/fake_bmw.cpp build/gauge_core.o -lm -o $$@
+test-plugins-$(1): build/test-$(1)
+	./build/test-$(1) display | diff - tests/golden/$(1)-display.txt
+	./build/test-$(1) polling
+endef
+$(foreach p,$(POLL_LIFECYCLE),$(eval $(call POLL_RULE,$(word 1,$(subst :, ,$p)),$(word 2,$(subst :, ,$p)))))
+
+check-poll-coverage:
+	@for f in $$(grep -l 0x40000003u src/plugins/*.cpp | xargs grep -l 'visible_'); do b=$$(basename $$f .cpp); \
+	  case " boost_deck shift_deck launch_deck $(POLL_NAMES) $(POLL_EXEMPT) " in *" $$b "*) ;; \
+	  *) echo "$$b polls on a timer but has no hidden-polling test (see POLL_LIFECYCLE in the Makefile)"; exit 1;; esac; done
+
+test-plugins: check-poll-coverage build/test-boost-deck build/test-shift-deck build/test-launch-deck $(foreach n,$(POLL_NAMES),test-plugins-$(n))
+	./build/test-boost-deck display | diff - tests/golden/boost-deck-display.txt
+	./build/test-shift-deck display | diff - tests/golden/shift-deck-display.txt
+	./build/test-launch-deck display | diff - tests/golden/launch-deck-display.txt
+	./build/test-boost-deck polling
+	./build/test-shift-deck polling
+	./build/test-launch-deck polling
+
 launch-assets:
 	$(PYTHON) ../tools/launch_art.py
 
@@ -102,3 +149,4 @@ test: build/xdrive-control build/boost-deck build/shift-deck build/mhd-maps buil
 	$(PYTHON) -B tests/test_drive_apps.py
 	$(PYTHON) -B tests/test_oneshot_most.py
 	$(PYTHON) -B tests/test_transport.py
+	$(MAKE) test-plugins

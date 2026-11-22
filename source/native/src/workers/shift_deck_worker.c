@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
         diag_link_tick(&link);
         ++count;
         elapsed=bd_mono_ms()-start;
-        if (diag_running) poll(0,0,!up ? 25 : elapsed<20 ? (int)(20-elapsed) : 2);
+        if (diag_running) poll(0,0,!up ? 25 : elapsed<20 ? (int)(20-elapsed) : 10);
     }
     lost=diag_link_lost(&link);
     diag_link_close(&link);
