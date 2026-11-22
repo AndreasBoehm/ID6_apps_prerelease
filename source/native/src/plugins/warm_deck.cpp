@@ -67,6 +67,8 @@ class WarmDeck : public bmw::PluginApp {
             retry_=0;
             if (!visible_) stopWorker();
             else tick();
+            // The poll loop ends while hidden; a new generation retires any tick still queued.
+            if (visible_ && socket_>=0) { ++generation_; postPoll(); }
         }
         return true;
     }
@@ -162,7 +164,7 @@ public:
         if (!data.readUInt32(generation)) return false;
         if (generation==generation_ && socket_>=0) {
             tick();
-            postPoll();
+            if (visible_ || child_>0) postPoll();
         }
         return true;
     }

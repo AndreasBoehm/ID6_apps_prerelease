@@ -16,7 +16,9 @@ class HudTest : public bmw::PluginApp {
     unsigned retries_;
     void status(const char* text) { updateModel(50u, bmw::BasicString<char>(text)); }
 
-    void poll(unsigned delay = 200) {
+    // The worker draws the HUD, but it exits on faults (no HUD, no data) and this plugin restarts it.
+    // That check must keep running while the page is hidden, so it ticks slowly instead of stopping.
+    void poll(unsigned delay = 1000) {
         if (polling_) return;
         polling_ = true;
         bmw::Parcel data;
