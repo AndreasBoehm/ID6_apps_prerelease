@@ -40,7 +40,7 @@ DME9X2_VALUES = {0xF150: bytes.fromhex("0f3690"), 0xEF51: bytes.fromhex("0c80"),
                   0x4C5D: bytes.fromhex("ea60"), 0xED50: bytes.fromhex("0400"),
                   0x4A49: VALUES[0x4A49], 0xEF50: bytes.fromhex("aa"), 0xDA12: VALUES[0xDA12],
                   0xEF2C: bytes.fromhex("1388"), 0x4C24: bytes.fromhex("09c4"),
-                  0x4C97: bytes.fromhex("2c00")}
+                  0x4C97: bytes.fromhex("2c00"), 0xEC3F: bytes.fromhex("1400")}
 # An EGS F150 index this repo has calibration for (GSZFBCE, see egs_signal_table.h): the DME side
 # answers an index not in dme_signal_table.h, so it keeps the dme8ff_r default throughout.
 EGS_OVERRIDE_VALUES = dict(VALUES)
@@ -212,6 +212,12 @@ class TransportTest(unittest.TestCase):
         self.assertAlmostEqual(float(p[15]), 89.14)
         self.assertAlmostEqual(float(p[17]), 2.497)
         self.assertAlmostEqual(float(p[19]), 33.25, places=1)  # the DME8FF_R row uses -273.14
+
+    def test_intercooler_coolant_is_read_when_selected(self):
+        p, requests, _ = self.run_collector("dme9x2", ("--signals", "4294967295"))
+        self.assertIn(bytes.fromhex("f41222ec3f"), requests)
+        self.assertTrue(int(p[3]) & (1 << 31))
+        self.assertAlmostEqual(float(p[5 + 2 * 31]), 40.0)  # 0x1400 / 128
 
     def test_f150_identification_switches_to_the_cars_own_dids(self):
         """A 22 F150 reply for an SGBD in dme_signal_table.h (here, a G65 DME9X2) is read instead

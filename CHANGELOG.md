@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Intercooler coolant gauge.** BoostDeck can show the low-temperature intercooler circuit coolant (DID `EC3F`, signed 2 bytes, raw / 128 °C) on the G-series DMEs whose SGBD defines it (DME982, DME98, DME9X2). The frame format is now `NBG8` (32 channels); `NBG7` is still accepted. Not read on a car.
+- **Intercooler coolant is selectable.** The gauge menus of BoostDeck now list "Intercooler coolant" for every gauge; the signal was read by the worker but had no menu entry, so it could never be shown.
 - **DID audit against the SGBDs.** Every `dme_signal_table.h` row was checked against its SGBD. Fixes intake air on DME982 and DME9X2, which is one byte, not two. Adds ignition timing `59FA` for six more SGBDs, DME98 oil pressure `EF58`, and transmission temperature rows for GSAW01, GSAW02FH/FP, GKEB23TU, GKEG3HY and GSB231. None of these was read on a car.
 - **Gauge plugins stop polling when hidden.** ShiftDeck, LaunchDeck, BoostDeck, WarmDeck and HybridDeck no longer re-arm their poll timer once the page is hidden and the worker has exited.
 - **Less work per tick.** The HUD menu polls once a second instead of every 200 ms, BoostDeck redraws only changed gauges, and ShiftDeck and LaunchDeck send only changed digits.
