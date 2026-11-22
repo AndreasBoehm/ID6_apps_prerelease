@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Gauge plugins stop polling when hidden.** ShiftDeck, LaunchDeck, BoostDeck, WarmDeck and HybridDeck no longer re-arm their poll timer once the page is hidden and the worker has exited.
+- **Less work per tick.** The HUD menu polls once a second instead of every 200 ms, BoostDeck redraws only changed gauges, and ShiftDeck and LaunchDeck send only changed digits.
+- **Fixes a new worker being started on every tick** when the HMI ignores `SIGCHLD`. Plugins now confirm with `kill(pid, 0)` before forgetting a worker pid.
+- Adds host tests for the plugins against a fake BMW framework (`make test-plugins`) and `make check-reap`.
 - **MOST fallback for every worker.** Workers now share one diagnostic link that switches to the head unit's MOST tunnel when the HSFZ gateway cannot be reached. This now covers xDrive Control, Beamer, Hybrid Deck, MG Flasher, Warm Deck, Road Jet and the HUD reader, as well as the workers that already had it. Only the Bootmod3 burble write stays on HSFZ, because it is larger than the tunnel limit. Workers stay on HSFZ when native NBT-AAD (Android Auto) is installed.
 - **Reads are not limited to the DME.** The tunnel carries the target ECU address, so EGS and DSC reads work over MOST too. BoostDeck and Warm Deck now read the transmission temperature over MOST. Probed read-only on one car, not yet run in these builds on a car.
 - Adds a host test that every ECU address and UDS service reaches the tunnel.
@@ -16,7 +20,6 @@
 
 ## v0.7.6
 
-- App layouts now fill the full 1260 × 477 content area (flush left, small margins elsewhere) instead of leaving a gap at the right and bottom. The compact 800 × 480 and 960 × 480 layouts are scaled from the new base.
 - Adds MG Flasher live controls and HybridDeck for plug-in hybrid telemetry, including battery health where reported.
 - BoostDeck gets larger circular gauges, radio-button settings, gasoline rail-pressure fallback, and improved handling of unavailable signals and an occupied HUD sharing port.
 - Bootmod3 detects supported ROMs automatically. Exhaust flap and Active Sound work independently of the ROM lookup.
